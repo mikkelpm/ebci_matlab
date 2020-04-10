@@ -11,7 +11,7 @@ Last updated: 2020-04-09
 
 Tested in Matlab R2019b on Windows 10 PC, 64-bit
 
-## Content
+## Contents
 
 **[ebci](ebci):** EBCI routines
 - [cva.m](ebci/cva.m): robust EBCI critical value
