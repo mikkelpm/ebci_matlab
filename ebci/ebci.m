@@ -1,4 +1,4 @@
-function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma, weights, alpha, tstat, varargin)
+function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma, alpha, varargin)
 
     % Empirical Bayes confidence interval (EBCI)
     % i.  Parametric EBCI, or
@@ -19,17 +19,19 @@ function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma,
     % In case of t-statistic shrinkage, epsilon_i = (theta_i/sigma_i - X_i'*delta).
     
     
-    % Inputs:
+    % Required inputs:
     % Y             n x 1       preliminary estimates of theta_i
     % X             n x k       matrix of regressors for shrinkage (may include constant column), set to [] if shrinkage toward 0
     % sigma         n x 1       standard deviations of Y_i, conditional on theta_i
-    % weights       n x 1       weights for estimating moments mu_2 and kappa, set to [] if equal weights
     % alpha         1 x 1       significance level
-    % tstat         bool        true = t-statistic shrinkage, false = baseline shrinkage (assumes moment independence)
-    % varargin                  extra arguments if robust EBCI is desired (otherwise function returns parametric EBCI):
-    %                           {1} use_w_eb    bool    true = MSE-optimal shrinkage w_EB, false = length-optimal shrinkage w_opt
-    %                           {2} use_kappa   bool    true = impose estimated kurtosis bound, false = do not impose kurtosis bound
-    %                           {3} opt_struct  struct  struct with optimization options (optional)
+    
+    % Optional inputs, specified as pairs of parameter name and value:
+    % weights       n x 1       weights for estimating moments mu_2 and kappa, set to [] if equal weights (default)
+    % param         bool        true = compute parametric EBCI, false = compute robust EBCI (default)
+    % tstat         bool        true = t-statistic shrinkage, false = baseline shrinkage assuming moment independence (default)
+    % w_opt         bool        true = length-optimal shrinkage w_opt, false = MSE-optimal shrinkage w_EB (default)
+    % kappa         bool        true = impose estimated kurtosis bound (default), false = do not impose kurtosis bound
+    % opt_struct    struct      struct with optimization options, set to [] if default settings
     
     % Outputs:
     % thetahat      n x 1       EB point estimates
@@ -41,8 +43,23 @@ function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma,
     % delta         k x 1       OLS coefficients in regression of Y_i on X_i (or Y_i/sigma_i on X_i for t-stat shrinkage)
     
     
+    % Input parser
+    p = inputParser;
+    addRequired(p, 'Y', @isnumeric);
+    addRequired(p, 'X', @isnumeric);
+    addRequired(p, 'sigma', @isnumeric);
+    addRequired(p, 'alpha', @isnumeric);
+    addParameter(p, 'weights', [], @(x) isnumeric(x) || isempty(x));
+    addParameter(p, 'param', false, @islogical);
+    addParameter(p, 'tstat', false, @islogical);
+    addParameter(p, 'w_opt', false, @islogical);
+    addParameter(p, 'kappa', true, @islogical);
+    addParameter(p, 'opt_struct', [], @(x) isstruct(x) || isempty(x));
+    parse(p, Y, X, sigma, alpha, varargin{:});
+    
+    % Define outcome data
     Y_norm = Y;
-    if tstat % If t-stat shrinkage, divide by sigma
+    if p.Results.tstat % If t-stat shrinkage, divide by sigma
         Y_norm = Y./sigma;
     end
     
@@ -56,38 +73,33 @@ function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma,
     end
     
     % Preliminary moment calculations + parametric EB shrinkage factor and length
-    if tstat
-        [mu2, kappa] = moment_conv(Y_norm-mu1, 1, weights); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i/sigma_i-mu_{1,i})
+    if p.Results.tstat
+        [mu2, kappa] = moment_conv(Y_norm-mu1, 1, p.Results.weights); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i/sigma_i-mu_{1,i})
         [w_eb, lngth_param] = parametric_ebci(mu2, alpha);
     else
-        [mu2, kappa] = moment_conv(Y-mu1, sigma, weights); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i-mu_{1,i})
+        [mu2, kappa] = moment_conv(Y-mu1, sigma, p.Results.weights); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i-mu_{1,i})
         [w_eb, lngth_param] = parametric_ebci(mu2./(sigma.^2), alpha);
     end
     
-    if ~isempty(varargin) % If robust CI is desired...
+    if ~p.Results.param % If robust CI is desired...
         
-        % Read extra arguments to function
-        use_w_eb = varargin{1};
-        use_kappa = varargin{2};
-        
-        if length(varargin)>2
-            opt_struct = varargin{3};
+        if isempty(p.Results.opt_struct)
+            opt_struct = opt_struct_default(); % Default numerical options
         else
-            opt_struct = opt_struct_default();
+            opt_struct = p.Results.opt_struct;
         end
         
-        if use_w_eb
-            w = w_eb;
-        else
+        w = w_eb;
+        if p.Results.w_opt
             w = [];
         end
         
         kappa_cv = kappa;
-        if ~use_kappa
+        if ~p.Results.kappa
             kappa_cv = []; % Do not use kurtosis to compute critical value
         end
         
-        if ~tstat % If moment independence assumption is imposed...
+        if ~p.Results.tstat % If moment independence assumption is imposed...
             
             % Treat observations separately
             n = length(Y);
@@ -130,7 +142,7 @@ function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma,
     end
     
     thetahat = mu1 + w_estim.*(Y_norm-mu1); % Point estimate: shrink toward mu_{1,i}
-    if tstat
+    if p.Results.tstat
         thetahat = thetahat.*sigma; % If t-stat shrinkage, scale up by sigma again
     end
     ci = thetahat + (normlng.*sigma)*[-1 1]; % Confidence interval

@@ -7,7 +7,7 @@ clear all;
 
 % See also R package "ebci": https://github.com/kolesarm/ebci
 
-% This version: 2020-04-09
+% This version: 2020-05-02
 % Tested in Matlab R2019b on Windows 10 PC, 64-bit
 
 
@@ -49,17 +49,12 @@ X = [ones(n,1) dat.stayer25]; % Regression matrix for shrinkage
 % Significance level
 alpha = 0.1;
 
-% Weights for estimating moments of effects distribution
-weights = []; % empty: use equal weights
-
 
 %% Parametric EBCIs
 
 % Compute EBCIs
-[thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma, weights, alpha, false);
-% The last argument means:
-% Use baseline shrinkage method that imposes moment independence (see paper)
-% rather than t-statistic shrinkage
+[thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma, alpha, 'param', true);
+% The last argument asks for parametric EBCIs
 
 disp('Moment estimates');
 disp([sqrt(mu2) kappa]);
@@ -92,11 +87,8 @@ disp(ebci_param);
 %% Robust EBCIs, baseline shrinkage
 
 % Call main EBCI function (uses parallel computing)
-[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, weights, alpha, false, true, true);
-% Since we supply the last two arguments, we obtain robust EBCIs instead of parametric EBCIs
-% The last two arguments mean (from left to right):
-% - Center the EBCIs at mean-squared-error-optimal EB point estimator
-% - Use estimate of kurtosis of effects distribution (if false, we only use second moment to compute critical values)
+[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha);
+% Since we do not specify the argument 'param'=true, we obtain robust EBCIs
 
 ci_lo = ci(:,1);
 ci_up = ci(:,2);
@@ -112,9 +104,8 @@ disp(ebci_robust);
 %% Optimal robust EBCIs, baseline shrinkage
 
 % Compute EBCIs (uses parallel computing)
-[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, weights, alpha, false, false, true);
-% Penultimate argument means:
-% Center the EBCIs at length-optimal EB point estimator
+[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha, 'w_opt', true);
+% The last argument asks to center the EBCIs at length-optimal EB point estimator instead of MSE-optimal point estimator
 
 ci_lo = ci(:,1);
 ci_up = ci(:,2);
@@ -128,9 +119,8 @@ disp(ebci_robust_opt);
 %% Robust EBCIs, t-statistic shrinkage
 
 % Compute EBCIs (does not require parallel computing due to t-stat shrinkage)
-[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, weights, alpha, true, true, true);
-% Third-to-last argument means:
-% Use t-statistic shrinkage, which does not impose moment independence
+[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha, 'tstat', true);
+% The last argument asks for t-statistic shrinkage, which does not impose moment independence
 
 % Note that there's a single value of w_estim and normlng that applies to
 % all observations when using t-stat shrinkage
@@ -141,6 +131,20 @@ ci_lo = ci(:,1);
 ci_up = ci(:,2);
 ebci_robust_tstat = table(czname, thetahat, ci_lo, ci_up, w_estim, normlng);
 disp(ebci_robust_tstat);
+
+
+%% Robust EBCIs, t-statistic shrinkage, only second moment
+
+% Compute EBCIs (does not require parallel computing due to t-stat shrinkage)
+[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha, 'tstat', true, 'kappa', false);
+% The last argument asks to not use estimated kurtosis when computing critical value
+
+w_estim = repmat(w_estim, n, 1);
+normlng = repmat(normlng, n, 1);
+ci_lo = ci(:,1);
+ci_up = ci(:,2);
+ebci_robust_tstat_nokappa = table(czname, thetahat, ci_lo, ci_up, w_estim, normlng);
+disp(ebci_robust_tstat_nokappa);
 
 
 % Shut down parallel computing pool

@@ -7,7 +7,7 @@ Armstrong, Timothy B., Michal Kolesár, and Mikkel Plagborg-Møller (2020), "Rob
 
 See also the R package "ebci": https://github.com/kolesarm/ebci
 
-Last updated: 2020-04-09
+Last updated: 2020-05-02
 
 Tested in Matlab R2019b on Windows 10 PC, 64-bit
 
