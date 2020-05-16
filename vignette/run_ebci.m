@@ -7,7 +7,7 @@ clear all;
 
 % See also R package "ebci": https://github.com/kolesarm/ebci
 
-% This version: 2020-05-02
+% This version: 2020-05-15
 % Tested in Matlab R2019b on Windows 10 PC, 64-bit
 
 
@@ -52,13 +52,15 @@ alpha = 0.1;
 
 %% Parametric EBCIs
 
+disp('Parametric EBCIs');
+
 % Compute EBCIs
 [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma, alpha, 'param', true);
 % The last argument asks for parametric EBCIs
 
-disp('Moment estimates');
+disp('Moment estimates [sqrt(mu_2) kappa]');
 disp([sqrt(mu2) kappa]);
-disp('Shrinkage regression coefficients');
+disp('Shrinkage regression coefficients [intercept stayer25]');
 disp(delta');
 
 % Compute worst-case non-coverage probability of individual parametric EBCIs
@@ -86,6 +88,8 @@ disp(ebci_param);
 
 %% Robust EBCIs, baseline shrinkage
 
+disp('Robust EBCIs, baseline shrinkage');
+
 % Call main EBCI function (uses parallel computing)
 [thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha);
 % Since we do not specify the argument 'param'=true, we obtain robust EBCIs
@@ -101,7 +105,9 @@ disp(ebci_robust);
 % because the estimate of kappa is close to 3
 
 
-%% Optimal robust EBCIs, baseline shrinkage
+%% Length-optimal robust EBCIs, baseline shrinkage
+
+disp('Length-optimal robust EBCIs, baseline shrinkage');
 
 % Compute EBCIs (uses parallel computing)
 [thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha, 'w_opt', true);
@@ -117,6 +123,8 @@ disp(ebci_robust_opt);
 
 
 %% Robust EBCIs, t-statistic shrinkage
+
+disp('Robust EBCIs, t-statistic shrinkage');
 
 % Compute EBCIs (does not require parallel computing due to t-stat shrinkage)
 [thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha, 'tstat', true);
@@ -135,8 +143,10 @@ disp(ebci_robust_tstat);
 
 %% Robust EBCIs, t-statistic shrinkage, only second moment
 
+disp('Robust EBCIs, t-statistic shrinkage, only second moment');
+
 % Compute EBCIs (does not require parallel computing due to t-stat shrinkage)
-[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha, 'tstat', true, 'kappa', false);
+[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha, 'tstat', true, 'use_kappa', false);
 % The last argument asks to not use estimated kurtosis when computing critical value
 
 w_estim = repmat(w_estim, n, 1);
