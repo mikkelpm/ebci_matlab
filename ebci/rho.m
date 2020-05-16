@@ -136,9 +136,10 @@ function [val, xmax] = lam(x0, chi, t0, ip, opt_struct)
     end
     
     % We want >= since derivative at zero may be zero if chi is large
-    der = (delta1(xs, x0, chi)>=0);
+    the_delta1 = delta1(xs, x0, chi);
+    der = (the_delta1>=0);
     
-    if all(der<=0)
+    if all(der<=0) || max(abs(the_delta1))<eps
         val = delta(0, x0, chi);
         xmax = 0;
         return;
@@ -171,20 +172,30 @@ function [t0, ip] = rt0(chi, opt_struct)
         t0 = 0;
         ip = 0;
     else
+        % Find inflection point
+        % Avoid issues when chi is numerically very large
+        if abs(r2(chi^2-3/2, chi))<1e-12 || (chi^2-3)==chi^2
+            ip = chi^2-3/2;
+        else
+            ip = fzero(@(tt) r2(tt,chi), [chi^2-3, chi^2], opt_struct.fzero);
+        end
+        
         % Find t_0
         f0 = @(tt) r(tt,chi)-tt.*r1(tt,chi)-r(0,chi);
         % Make sure upper endpoint of interval is positive; it always is for
         % chi< 100,000, so we should never enter the while loop
-        lo = chi^2-3;
-        up = 5*chi^2;
+        lo = ip;
+        up = 2*chi^2;
         while f0(up) < 0
             lo = up;
             up = 2*up;
         end
-        t0 = fzero(f0, [lo up], opt_struct.fzero);
-        
-        % Find inflection point
-        ip = fzero(@(tt) r2(tt,chi), [chi^2-3, chi^2], opt_struct.fzero);
+        t0 = lo;
+        if f0(lo) < 0
+            t0 = fzero(f0, [lo up], opt_struct.fzero);    
+        elseif f0(lo) > 1e-12
+            warning('%s%f', 'Failed to solve for t0 using rt0 at chi=', chi);
+        end
     end
     
 end

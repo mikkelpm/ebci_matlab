@@ -5,7 +5,7 @@ Matlab code for computing robust empirical Bayes confidence intervals (EBCIs)
 **Reference:**
 Armstrong, Timothy B., Michal Kolesár, and Mikkel Plagborg-Møller (2020), "Robust Empirical Bayes Confidence Intervals", [arXiv:2004.03448](https://arxiv.org/abs/2004.03448), https://scholar.princeton.edu/mikkelpm/ebci
 
-See also the R package "ebci": https://github.com/kolesarm/ebci
+See also the R package "ebci" by Michal Kolesár (who deserves all intellectual credit for the code structure): https://github.com/kolesarm/ebci
 
 Last updated: 2020-05-15
 
