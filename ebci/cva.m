@@ -18,6 +18,10 @@ function [chi, lf_t, lf_p] = cva(m2, kappa, alpha, varargin)
         kappa = Inf;
     end
     
+    assert(m2>=0, 'cva:input1Error', 'm2 must exceed 0');
+    assert(kappa>=1, 'cva:input2Error', 'kappa must exceed 1');
+    assert(alpha>0 & alpha<1, 'cva:input3Error', 'alpha must be between 0 and 1');
+    
     if m2==0 || kappa==1 % Simple case
         
         chi = CVb(sqrt(m2), alpha); % Square root of non-central chi-square CV
@@ -36,24 +40,39 @@ function [chi, lf_t, lf_p] = cva(m2, kappa, alpha, varargin)
             return;
         end
         
-        % Bounds on optimization
-        lo = 0.99*CVb(sqrt(m2),alpha); % Lower bound
-        up = sqrt((1+m2)/alpha); % Upper bound (from Chebyshev's inequality)
-        
         % Optimization options struct
         if isempty(varargin)
             opt_struct = opt_struct_default();
         else
             opt_struct = varargin{1};
         end
-        
-        % First determine CV without verifying optimum
         opt_struct2 = opt_struct;
-        opt_struct2.check = false;
-        chi = fzero(@(cchi) rho(m2,kappa,cchi,opt_struct2)-alpha, [lo up], opt_struct.fzero);
-        [~, lf_t, lf_p] = rho(m2,kappa,chi,opt_struct2);
+        opt_struct2.check = false; % Struct for root solver - doesn't double-check solution with linear program at each iteration
         
-        if opt_struct.check % If we should check solution, run again at putative optimum
+        % Bounds on optimization
+        lo = 0.99*CVb(sqrt(m2),alpha); % Lower bound
+        up = sqrt((1+m2)/alpha); % Upper bound from Chebyshev's inequality
+        
+        % Solve first for CV with kappa=Inf (fast)
+        if abs(rho(m2,Inf,up,opt_struct2)-alpha) >= 9e-6
+            up = fzero(@(cchi) rho(m2,Inf,cchi,opt_struct2)-alpha, [lo up], opt_struct.fzero);
+        end
+        
+        % If rejection rate is already close to alpha, keep CV under kappa=Inf
+        if rho(m2,kappa,up,opt_struct2)-alpha >= -1e-5
+            chi = up;
+        else
+            % Otherwise, determine CV with kappa constraint imposed
+            chi = fzero(@(cchi) rho(m2,kappa,cchi,opt_struct2)-alpha, [lo up], opt_struct.fzero);
+        end
+        
+        % Least favorable distribution
+        if nargout>1
+            [~, lf_t, lf_p] = rho(m2, kappa, chi, opt_struct2);
+        end
+        
+        % If we should check solution, run again at putative optimum
+        if opt_struct.check
             the_alpha = rho(m2, kappa, chi, opt_struct);
             if abs(the_alpha-alpha)>0.001
                 warning('%s%f', 'The difference between non-coverage and alpha at CV is ', the_alpha-alpha);
@@ -64,7 +83,7 @@ function [chi, lf_t, lf_p] = cva(m2, kappa, alpha, varargin)
 
 end
 
-% Critical value from Armstrong and Kolesar
+% Critical value from Armstrong and Kolesár
 function val = CVb(B, alpha)
     idx = (B<10);
     val = B + norminv(1-alpha);
