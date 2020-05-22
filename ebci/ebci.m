@@ -28,7 +28,7 @@ function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma,
     % Optional inputs, specified as pairs of parameter name and value:
     % mu2           1 x 1       value used for mu_2, set to [] if moment should be estimated (default)
     % kappa         1 x 1       value used for kappa (also requires mu2 to be specified), set to [] if moment should be estimated (default)
-    % weights       n x 1       weights for estimating moments mu_2 and kappa, set to [] if equal weights (default)
+    % weights       n x 1       weights for estimating delta, mu_2, and kappa; set to [] if equal weights (default)
     % param         bool        true = compute parametric EBCI, false = compute robust EBCI (default)
     % tstat         bool        true = t-statistic shrinkage, false = baseline shrinkage assuming moment independence (default)
     % w_opt         bool        true = length-optimal shrinkage w_opt, false = MSE-optimal shrinkage w_EB (default)
@@ -69,9 +69,18 @@ function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma,
         Y_norm = Y./sigma;
     end
     
+    % Weights
+    if isempty(p.Results.weights)
+        weights = ones(length(Y_norm),1);
+    else
+        weights = p.Results.weights;
+    end
+    
     % Determine shrinkage direction
     if ~isempty(X)
-        delta = X\Y_norm;
+        X_weight = sqrt(weights).*X;
+        Y_norm_weight = sqrt(weights).*Y_norm;
+        delta = X_weight(weights~=0,:)\Y_norm_weight(weights~=0);
         mu1 = X*delta; % Shrink towards regression estimate mu_{1,i}=X_i'*delta
     else
         mu1 = 0; % Shrink towards zero
@@ -83,12 +92,12 @@ function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma,
     kappa = p.Results.kappa;
     if p.Results.tstat
         if isempty(mu2)
-            [mu2, kappa] = moment_conv(Y_norm-mu1, 1, p.Results.weights); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i/sigma_i-mu_{1,i})
+            [mu2, kappa] = moment_conv(Y_norm-mu1, 1, weights); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i/sigma_i-mu_{1,i})
         end
         [w_eb, lngth_param] = parametric_ebci(mu2, alpha);
     else
         if isempty(mu2)
-            [mu2, kappa] = moment_conv(Y-mu1, sigma, p.Results.weights); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i-mu_{1,i})
+            [mu2, kappa] = moment_conv(Y-mu1, sigma, weights); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i-mu_{1,i})
         end
         [w_eb, lngth_param] = parametric_ebci(mu2./(sigma.^2), alpha);
     end
