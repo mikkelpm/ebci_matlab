@@ -132,27 +132,46 @@ function [val, xmax] = lam(x0, chi, t0, ip, opt_struct)
     if x0 >= xs(1)
         xs = [0 xs(1)];
     else
-        xs = [0 x0 xs];
+        xs = unique([0 x0 xs]);
     end
     
-    % We want >= since derivative at zero may be zero if chi is large
-    the_delta1 = delta1(xs, x0, chi);
-    der = (the_delta1>=0);
+    vals = delta(xs, x0, chi);
+    ders = delta1(xs, x0, chi);
     
-    if all(der<=0) || max(abs(the_delta1))<eps
-        val = delta(0, x0, chi);
-        xmax = 0;
+    % Default return value: optimum at 0
+    val = vals(1);
+    xmax = 0;
+    
+    % Expect delta has single maximum, so first increasing, then
+    % decreasing, up to numerical tolerance
+    if all(ders<=0) && vals(1)==max(vals)
+        % Maximum at 0
         return;
-    elseif all(diff(der)<=0)
-        the_ind = find(der==0,1);
+    elseif all(diff(ders>=0)<=0) && ders(end)<=0
+        % Function first increasing, then decreasing
+        the_ind = find(ders<=0,1);
         the_start = xs(the_ind-1);
         the_end = xs(the_ind);
+    elseif (max(abs(der)) < 1e-5)
+        % Determine interval based on value of delta,
+        % numerical accuracy of delta1 only 7e-6
+        [~,the_ind_max] = max(vals);
+        the_start = xs(max(the_ind_max-1, 1));
+        the_end = xs(min(the_ind_max+1, length(xs)));
     else
-        error('There are multiple local optima.');
+        error('%s%f%s%f%s', 'There are multiple local optima in the function delta(x, x0=', x0, ', chi=', chi, ').');
     end
     
-    [xmax, mdelta] = fminbnd(@(x) -delta(x, x0, chi), the_start, the_end, opt_struct.fminbnd);
-    val = -mdelta;
+    % Numerical optimization
+    [the_xmax, mdelta] = fminbnd(@(x) -delta(x, x0, chi), the_start, the_end, opt_struct.fminbnd);
+    
+    % Check optimum at 0 not substantially higher, we could miss it due to numerical accuracy issues
+    if -mdelta > vals(1)
+        val = -mdelta;
+        xmax = the_xmax;
+    elseif -mdelta < vals(1)-1e-9
+        warning('%s%f%s%f%s', 'Optimum may be wrong for lam(x0=', x0, ', chi=', chi, ').');
+    end
 
 end
 
