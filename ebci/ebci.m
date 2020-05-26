@@ -33,6 +33,8 @@ function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma,
     % tstat         bool        true = t-statistic shrinkage, false = baseline shrinkage assuming moment independence (default)
     % w_opt         bool        true = length-optimal shrinkage w_opt, false = MSE-optimal shrinkage w_EB (default)
     % use_kappa     bool        true = impose estimated kurtosis bound (default), false = do not impose kurtosis bound
+    % fs_correction char        'none' = no finite-sample moment correction (not recommended),
+    %                           'PMT' = posterior mean truncation (default), 'FPLIB' = flat prior limited information Bayes
     % verbose       bool        true = show progress when computing EBCI for each observation, false = do not show progress (default)
     % opt_struct    struct      struct with optimization options, set to [] if default settings
     
@@ -59,6 +61,7 @@ function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma,
     addParameter(p, 'tstat', false, @islogical);
     addParameter(p, 'w_opt', false, @islogical);
     addParameter(p, 'use_kappa', true, @islogical);
+    addParameter(p, 'fs_correction', 'PMT', @ischar);
     addParameter(p, 'verbose', false, @islogical);
     addParameter(p, 'opt_struct', [], @(x) isstruct(x) || isempty(x));
     parse(p, Y, X, sigma, alpha, varargin{:});
@@ -92,12 +95,12 @@ function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma,
     kappa = p.Results.kappa;
     if p.Results.tstat
         if isempty(mu2)
-            [mu2, kappa] = moment_conv(Y_norm-mu1, 1, weights); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i/sigma_i-mu_{1,i})
+            [mu2, kappa] = moment_conv(Y_norm-mu1, 1, weights, p.Results.fs_correction); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i/sigma_i-mu_{1,i})
         end
         [w_eb, lngth_param] = parametric_ebci(mu2, alpha);
     else
         if isempty(mu2)
-            [mu2, kappa] = moment_conv(Y-mu1, sigma, weights); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i-mu_{1,i})
+            [mu2, kappa] = moment_conv(Y-mu1, sigma, weights, p.Results.fs_correction); % Estimates of 2nd moment and kurtosis of epsilon_i=(theta_i-mu_{1,i})
         end
         [w_eb, lngth_param] = parametric_ebci(mu2./(sigma.^2), alpha);
     end
