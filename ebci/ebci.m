@@ -178,6 +178,8 @@ function [thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma,
     thetahat = mu1 + w_estim.*(Y_norm-mu1); % Point estimate: shrink toward mu_{1,i}
     if p.Results.tstat
         thetahat = thetahat.*sigma; % If t-stat shrinkage, scale up by sigma again
+        w_estim = repmat(w_estim, size(thetahat));
+        normlng = repmat(normlng, size(thetahat));
     end
     ci = thetahat + (normlng.*sigma)*[-1 1]; % Confidence interval
 

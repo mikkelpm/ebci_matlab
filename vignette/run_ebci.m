@@ -4,10 +4,10 @@ clear all;
 
 % Reference: Armstrong, Timothy B., Michal Kolesár, and Mikkel
 % Plagborg-Møller (2020), "Robust Empirical Bayes Confidence Intervals"
+% https://arxiv.org/abs/2004.03448
 
 % See also R package "ebci": https://github.com/kolesarm/ebci
 
-% This version: 2020-05-15
 % Tested in Matlab R2019b on Windows 10 PC, 64-bit
 
 
@@ -16,21 +16,24 @@ clear all;
 addpath('../ebci'); % Add folder with EBCI functions to path
 
 % Illustration of robust EBCI critical values
-disp('Critical values');
-disp(cva(0, Inf, 0.05)); % m_2=0, kappa=Inf: usual normal critical value
-disp(cva(4, Inf, 0.05)); % m_2=4, kappa=Inf: larger critical value that takes bias into account
-disp(cva(4, 3, 0.05));   % m_2=4, kappa=3  : imposing a bound on kurtosis tightens the critical value
+disp('** Critical values **');
+disp('m_2=0, kappa=Inf');
+disp(cva(0, Inf, 0.05)); % Usual normal critical value
+disp('m_2=4, kappa=Inf');
+disp(cva(4, Inf, 0.05)); % Larger critical value that takes bias into account
+disp('m_2=4, kappa=3');
+disp(cva(4, 3, 0.05));   % Imposing a bound on kurtosis tightens the critical value
 
 
 %% Data for small empirical example
 
+disp('** Empirical example **');
+
 % Load Chetty & Hendren (2018) data
 dat = readtable('cz.csv', 'TreatAsEmpty', 'NA');
-
-% For simplicity, only use 20 largest commuting zones in what follows
-dat = sortrows(dat, 'pop', 'descend');
-dat = dat(1:20,:);
-czname = dat.czname;
+dat = dat(~isnan(dat.theta25),:); % Drop missing
+czname = dat.czname; % Commuting zone
+state = dat.state; % State
 
 % Preliminary estimates of causal effect Y_i: fixed effects estimates of
 % neighborhood effect, for children with parents at the 25th percentile of
@@ -46,32 +49,24 @@ X = [ones(n,1) dat.stayer25]; % Regression matrix for shrinkage
 % X = []; % Shrink toward zero
 % X = ones(n,1); % Shrink toward grand mean
 
+% Precision weights for regression and moment estimates
+weights = 1./sigma.^2;
+
 % Significance level
 alpha = 0.1;
 
+poolobj = parpool; % Open parallel computing pool
 
-%% Parametric EBCIs
 
-disp('Parametric EBCIs');
+%% Robust EBCIs, baseline shrinkage
 
-% Compute EBCIs
-[thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma, alpha, 'param', true);
-% The last argument asks for parametric EBCIs
+% Compute robust EBCIs (uses parallel computing)
+[thetahat, ci, w_estim, normlng, mu2, kappa, delta] = ebci(Y, X, sigma, alpha, 'weights', weights);
 
-disp('Moment estimates [sqrt(mu_2) kappa]');
-disp([sqrt(mu2) kappa]);
+disp('Moment estimates [mu_2 kappa]');
+disp([mu2 kappa]);
 disp('Shrinkage regression coefficients [intercept stayer25]');
 disp(delta');
-
-% Compute worst-case non-coverage probability of individual parametric EBCIs
-poolobj = parpool; % Open parallel computing pool
-maxnoncov = nan(n,1);
-parfor i=1:n % Loop over observations
-    maxnoncov(i) = parametric_ebci_maxnoncov(mu2/sigma(i)^2, kappa, alpha);
-end
-% In this example the maximal non-coverage rates are not much larger than
-% the nominal significance level of 10%, since the estimate of kappa is
-% close to 3 (as in the normal distribution case) in this example
 
 % Table with results
 % thetahat: shrinkage point estimates
@@ -79,82 +74,47 @@ end
 % ci_up: upper endpoint of EBCIs
 % w_estim: shrinkage factors
 % normlng: half-length of EBCIs, divided by standard errors
-% maxnoncov: worst-case non-coverage probabilities
 ci_lo = ci(:,1);
 ci_up = ci(:,2);
-ebci_param = table(czname, thetahat, ci_lo, ci_up, w_estim, normlng, maxnoncov);
-disp(ebci_param);
+ebci_robust = table(czname, state, thetahat, ci_lo, ci_up, w_estim, normlng);
+
+% Display results for California
+disp('Robust EBCIs: California');
+disp(ebci_robust(strcmp(ebci_robust.state, 'CA'),:));
+
+disp('Average length of unshrunk CIs relative to robust EBCIs');
+disp((2*norminv(1-alpha/2)*mean(sigma))/mean(ebci_robust.ci_up-ebci_robust.ci_lo));
 
 
-%% Robust EBCIs, baseline shrinkage
+%% Parametric EBCIs (Morris, 1983)
 
-disp('Robust EBCIs, baseline shrinkage');
+% Compute parametric EBCIs
+[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha, 'param', true, 'weights', weights);
+% The argument 'param'=true asks for parametric EBCIs
+% Note that the parametric EBCIs are centered at the same shrinkage estimates as the robust EBCIs
 
-% Call main EBCI function (uses parallel computing)
-[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha);
-% Since we do not specify the argument 'param'=true, we obtain robust EBCIs
-
-ci_lo = ci(:,1);
-ci_up = ci(:,2);
-ebci_robust = table(czname, thetahat, ci_lo, ci_up, w_estim, normlng);
-disp(ebci_robust);
-
-% Note that the robust EBCIs are centered at the same shrinkage estimates as the parametric EBCIs
-
-% The robust EBCIs are only marginally wider than the parametric EBCIs,
-% because the estimate of kappa is close to 3
-
-
-%% Length-optimal robust EBCIs, baseline shrinkage
-
-disp('Length-optimal robust EBCIs, baseline shrinkage');
-
-% Compute EBCIs (uses parallel computing)
-[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha, 'w_opt', true);
-% The last argument asks to center the EBCIs at length-optimal EB point estimator instead of MSE-optimal point estimator
+% Compute worst-case non-coverage probability of individual parametric EBCIs
+maxnoncov = nan(n,1);
+parfor i=1:n % Loop over observations
+    maxnoncov(i) = parametric_ebci_maxnoncov(mu2/sigma(i)^2, kappa, alpha);
+end
 
 ci_lo = ci(:,1);
 ci_up = ci(:,2);
-ebci_robust_opt = table(czname, thetahat, ci_lo, ci_up, w_estim, normlng);
-disp(ebci_robust_opt);
+ebci_param = table(czname, state, thetahat, ci_lo, ci_up, w_estim, normlng, maxnoncov);
 
-% The length-optimal robust EBCIs are only slightly shorter than the ones
-% computed above, again because kappa is close to 3
+% Display results for California
+disp('Parametric EBCIs: California');
+disp(ebci_param(strcmp(ebci_param.state, 'CA'),:));
 
+disp('Average length of parametric EBCIs relative to robust EBCIs');
+disp(mean(ebci_param.ci_up-ebci_param.ci_lo)/mean(ebci_robust.ci_up-ebci_robust.ci_lo));
 
-%% Robust EBCIs, t-statistic shrinkage
+disp('Average worst-case non-coverage probability of parametric EBCIs');
+disp(mean(maxnoncov));
 
-disp('Robust EBCIs, t-statistic shrinkage');
-
-% Compute EBCIs (does not require parallel computing due to t-stat shrinkage)
-[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha, 'tstat', true);
-% The last argument asks for t-statistic shrinkage, which does not impose moment independence
-
-% Note that there's a single value of w_estim and normlng that applies to
-% all observations when using t-stat shrinkage
-w_estim = repmat(w_estim, n, 1);
-normlng = repmat(normlng, n, 1);
-
-ci_lo = ci(:,1);
-ci_up = ci(:,2);
-ebci_robust_tstat = table(czname, thetahat, ci_lo, ci_up, w_estim, normlng);
-disp(ebci_robust_tstat);
-
-
-%% Robust EBCIs, t-statistic shrinkage, only second moment
-
-disp('Robust EBCIs, t-statistic shrinkage, only second moment');
-
-% Compute EBCIs (does not require parallel computing due to t-stat shrinkage)
-[thetahat, ci, w_estim, normlng] = ebci(Y, X, sigma, alpha, 'tstat', true, 'use_kappa', false);
-% The last argument asks to not use estimated kurtosis when computing critical value
-
-w_estim = repmat(w_estim, n, 1);
-normlng = repmat(normlng, n, 1);
-ci_lo = ci(:,1);
-ci_up = ci(:,2);
-ebci_robust_tstat_nokappa = table(czname, thetahat, ci_lo, ci_up, w_estim, normlng);
-disp(ebci_robust_tstat_nokappa);
+% The parametric EBCIs are shorter but less robust: They could potentially
+% have Empirical Bayes non-coverage probabilities well above alpha=10%
 
 
 % Shut down parallel computing pool
