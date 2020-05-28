@@ -149,7 +149,7 @@ function [val, xmax] = lam(x0, chi, t0, ip, opt_struct)
         return;
     elseif all(diff(ders>=0)<=0) && ders(end)<=0
         % Function first increasing, then decreasing
-        the_ind = find(ders<=0,1);
+        the_ind = find(ders<0,1);
         the_start = xs(the_ind-1);
         the_end = xs(the_ind);
     elseif (max(abs(der)) < 1e-5)
