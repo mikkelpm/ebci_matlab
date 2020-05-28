@@ -43,8 +43,4 @@ function [mu2, kappa] = moment_conv(Y, sigma, weights, fs_correction)
             
     end
     
-    if mu2==0
-        warning('mu_2 estimate is 0.');
-    end
-
 end

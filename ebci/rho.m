@@ -149,10 +149,13 @@ function [val, xmax] = lam(x0, chi, t0, ip, opt_struct)
         return;
     elseif all(diff(ders>=0)<=0) && ders(end)<=0
         % Function first increasing, then decreasing
-        the_ind = find(ders<0,1);
+        the_ind = max(find(ders<0,1),2); % In case all derivatives are negative
+        if isempty(the_ind)
+            the_ind = length(xs);
+        end
         the_start = xs(the_ind-1);
         the_end = xs(the_ind);
-    elseif (max(abs(der)) < 1e-5)
+    elseif (min(abs(der)) < 1e-6)
         % Determine interval based on value of delta,
         % numerical accuracy of delta1 only 7e-6
         [~,the_ind_max] = max(vals);
