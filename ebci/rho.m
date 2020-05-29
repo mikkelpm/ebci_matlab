@@ -155,7 +155,7 @@ function [val, xmax] = lam(x0, chi, t0, ip, opt_struct)
         end
         the_start = xs(the_ind-1);
         the_end = xs(the_ind);
-    elseif (min(abs(der)) < 1e-6)
+    elseif (min(abs(ders)) < 1e-6)
         % Determine interval based on value of delta,
         % numerical accuracy of delta1 only 7e-6
         [~,the_ind_max] = max(vals);
