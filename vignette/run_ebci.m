@@ -78,9 +78,9 @@ ci_lo = ci(:,1);
 ci_up = ci(:,2);
 ebci_robust = table(czname, state, thetahat, ci_lo, ci_up, w_estim, normlng);
 
-% Display results for California
-disp('Robust EBCIs: California');
-disp(ebci_robust(strcmp(ebci_robust.state, 'CA'),:));
+% Display results for New York
+disp('Robust EBCIs: New York');
+disp(ebci_robust(strcmp(ebci_robust.state, 'NY'),:));
 
 disp('Average length of unshrunk CIs relative to robust EBCIs');
 disp((2*norminv(1-alpha/2)*mean(sigma))/mean(ebci_robust.ci_up-ebci_robust.ci_lo));
@@ -103,9 +103,9 @@ ci_lo = ci(:,1);
 ci_up = ci(:,2);
 ebci_param = table(czname, state, thetahat, ci_lo, ci_up, w_estim, normlng, maxnoncov);
 
-% Display results for California
-disp('Parametric EBCIs: California');
-disp(ebci_param(strcmp(ebci_param.state, 'CA'),:));
+% Display results for New York
+disp('Parametric EBCIs: New York');
+disp(ebci_param(strcmp(ebci_param.state, 'NY'),:));
 
 disp('Average length of parametric EBCIs relative to robust EBCIs');
 disp(mean(ebci_param.ci_up-ebci_param.ci_lo)/mean(ebci_robust.ci_up-ebci_robust.ci_lo));
