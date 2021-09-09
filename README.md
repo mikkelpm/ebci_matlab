@@ -21,6 +21,10 @@ Tested in Matlab R2021a on Windows 10 PC, 64-bit
 - [cz.csv](vignette/cz.csv): Chetty & Hendren (2018) data set (obtained from https://opportunityinsights.org/data/)
 - [run_ebci.m](vignette/run_ebci.m): annotated script with examples
 
+## Requirements
+
+Matlab's Optimization Toolbox must be installed.
+
 ## Acknowledgements
 
 This software package is based upon work supported by the National Science Foundation under grant numbers SES-2049765 (Armstrong), SES-22049356 (Kolesár), and SES-1851665 (Plagborg-Møller), and by work supported by the Alfred P. Sloan Research Fellowship (Kolesár).
